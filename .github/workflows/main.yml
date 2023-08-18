@@ -20,7 +20,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     strategy:
       matrix:
-        python-version: ["3.8", "3.9"]
+        python-version: 3.9
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -171,4 +171,4 @@ jobs:
       with:
         to: ${{ secrets.TELEGRAM_TO }}
         token: ${{ secrets.TELEGRAM_TOKEN }}
-        message: Деплой Kittygram успешно выполнен!
+        message: Деплой Kittygram успешно выполнен, мои поздравления!!!
