@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  tests:  
+  tests:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -18,13 +18,15 @@ jobs:
         ports:
           - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9"]
     steps:
-    - name: Check out code
     - uses: actions/checkout@v3
-    - name: Set up Python
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: ${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
@@ -62,7 +64,7 @@ jobs:
         with:
           context: ./backend/
           push: true
-          tags: princess32/kittygram_backend:latest
+          tags: princess32/kittygram_backend:latest  
 
   frontend_tests:
     runs-on: ubuntu-latest
@@ -103,6 +105,7 @@ jobs:
           context: ./frontend/
           push: true
           tags: princess32/kittygram_frontend:latest
+
   build_gateway_and_push_to_docker_hub:
     name: Push gateway Docker image to DockerHub
     runs-on: ubuntu-latest
@@ -122,9 +125,11 @@ jobs:
           context: ./nginx/
           push: true
           tags: princess32/kittygram_gateway:latest
+  
   deploy:
+    if: contains(fromJson('["refs/heads/master", "refs/heads/main"]'), github.ref)
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - build_and_push_to_docker_hub
       - build_frontend_and_push_to_docker_hub
       - build_gateway_and_push_to_docker_hub
@@ -138,7 +143,7 @@ jobs:
         username: ${{ secrets.USER }}
         key: ${{ secrets.SSH_KEY }}
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
-        source: "docker-compose.production.yml"
+        source: 'docker-compose.production.yml'
         target: "kittygram_final"
     - name: Executing remote ssh commands to deploy
       uses: appleboy/ssh-action@master
@@ -148,16 +153,17 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         passphrase: ${{ secrets.SSH_PASSPHRASE }}
         script: |
-          cd kittygram_final
-          # Выполняет pull образов с DockerHub
+          cd kittygram
+          # Выполняет pull образов с Docker Hub
           sudo docker compose -f docker-compose.production.yml pull
-          # Перезапускает все контейнеры в docker compose
+          # Перезапускает все контейнеры в Docker Compose
           sudo docker compose -f docker-compose.production.yml down
           sudo docker compose -f docker-compose.production.yml up -d
           # Выполняет миграции и сбор статики
           sudo docker compose -f docker-compose.production.yml exec backend python manage.py migrate
           sudo docker compose -f docker-compose.production.yml exec backend python manage.py collectstatic
           sudo docker compose -f docker-compose.production.yml exec backend cp -r /app/collected_static/. /backend_static/static/
+
   send_message:
     runs-on: ubuntu-latest
     needs: deploy
@@ -167,4 +173,4 @@ jobs:
       with:
         to: ${{ secrets.TELEGRAM_TO }}
         token: ${{ secrets.TELEGRAM_TOKEN }}
-        message: Деплой kittygram успешно выполнен, поздравляю!
+        message: Деплой Kittygram успешно выполнен!
